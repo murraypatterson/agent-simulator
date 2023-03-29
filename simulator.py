@@ -307,6 +307,24 @@ def simulations(agent = 'prob', probability = 1., wait = 0, dirt = 0., n = 1000)
             exp = simulation(agent = 'wait', wait = wait, dirt = dirt)
             exps.append(exp)
 
+    elif agent == 'reflex' :
+
+        for i in range(n) :
+            exp = simulation(agent = 'reflex', dirt = dirt)
+            exps.append(exp)
+
+    elif agent == 'broken' :
+
+        for i in range(n) :
+            exp = simulation(agent = 'broken', dirt = dirt)
+            exps.append(exp)
+            
+    elif agent == 'null' :
+
+        for i in range(n) :
+            exp = simulation(agent = 'null', dirt = dirt)
+            exps.append(exp)
+            
     else :
         assert False, 'Error: unknown agent type'
             
@@ -405,14 +423,27 @@ exp = simulation(agent = 'null')
 print('  agent that does nothing has expected performance =', exp)
 print()
 
+c = .1
 print('suppose also that each clean square has a 10% chance of becoming dirty again:')
+print()
+
+exp = simulations(agent = 'reflex', dirt = c)
+print('  reflex vacuum agent has expected performance ~', exp)
+print()
+
+exp = simulations(agent = 'broken', dirt = c)
+print('  reflex vacuum with a broken sensor has expected performance ~', exp)
+print()
+
+exp = simulations(agent = 'null', dirt = c)
+print('  agent that does nothing has expected performance ~', exp)
 print()
 
 print('  consider agent which checks other square with probability p,')
 print('  we tune p with bisection:')
 print()
 
-p, v = bisection(dirt = .1)
+p, v = bisection(dirt = c)
 print('  -> it seems to converge to p = {:.3f} (performance = {:.3f})'.format(p,v))
 print()
 
@@ -421,6 +452,6 @@ print('  consider agent which checks other square after k time steps,')
 print('  we tune k by closing the gap between 0 and {}:'.format(uw))
 print()
 
-k, v = bisection(agent = 'wait', dirt = .1, uw = uw)
+k, v = bisection(agent = 'wait', dirt = c, uw = uw)
 print('  -> it seems to converge to k = {} (performance = {:.3f})'.format(k,v))
 print()
