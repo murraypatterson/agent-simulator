@@ -226,9 +226,15 @@ class WaitingAgent :
 # running the entire simulation
 #----------------------------------------------------------------------
 
-def simulation(agent = 'reflex', probability = 1., wait = 0, dirt = 0., printing = False) :
-
-    T = 100 # number of timesteps
+def simulation(
+        T = 100, # number of timesteps
+        agent = 'reflex', # choice of agent
+        probability = 1., # probability for prob agent
+        wait = 0, # how many timesteps to wait for the waiting agent
+        pen = True, # whether or not to penalize actions
+        dirt = 0., # probablity that a square becomes dirty again
+        printing = False, # whether to print or not
+) :
 
     overall = 0
     j = 0
@@ -262,7 +268,7 @@ def simulation(agent = 'reflex', probability = 1., wait = 0, dirt = 0., printing
 
                     a, b, pos = Agent.act(a, b, pos)
                     s = score(a,b)
-                    p = penalty(old_a, a, old_b, b, old_pos, pos)
+                    p = penalty(old_a, a, old_b, b, old_pos, pos) if pen else 0
                     total += s - p
 
                     if printing :
@@ -285,7 +291,7 @@ def simulation(agent = 'reflex', probability = 1., wait = 0, dirt = 0., printing
     return expected
 
 
-# running sets of simulations for an agent
+# running sets of simulations of an agent
 def simulations(agent = 'prob', probability = 1., wait = 0, dirt = 0., n = 1000) :
 
     exps = []
@@ -307,37 +313,114 @@ def simulations(agent = 'prob', probability = 1., wait = 0, dirt = 0., n = 1000)
     return sum(exps) / len(exps)
 
 
-# perform the bisection method on sets of simulations of the probabilistic agent
-def bisection(dirt = 0., n = 1000) :
+# perform the bisection method on sets of simulations of an agent in
+# order to tune the optimal parameter
+def bisection(agent = 'prob', dirt = 0., n = 1000, uw = 20, printing = False) :
 
-    low = 0.
-    upp = 1.
+    low = None
+    upp = None
+
+    if agent == 'prob' :
+
+        low = 0.
+        upp = 1.
+
+    elif agent == 'wait' :
+
+        low = 0
+        upp = uw
+
+    else :
+        assert False, 'Error: unknown agent type'
+
     while True :
 
-        v_low = simulations(probability = low, dirt = dirt, n = n)
-        v_upp = simulations(probability = upp, dirt = dirt, n = n)
+        v_low = None
+        v_upp = None
 
-        print('p = {}, exp = {}'.format(low, v_low))
-        print('p = {}, exp = {}'.format(upp, v_upp))
-        print()
+        if agent == 'prob' :
 
-        if abs(v_upp - v_low) < 0.001 :
-            break
+            v_low = simulations(probability = low, dirt = dirt, n = n)
+            v_upp = simulations(probability = upp, dirt = dirt, n = n)
 
-        bis = abs(upp - low) / 2. # bisector
-        if v_low < v_upp :
-            low += bis
-        else :
-            upp -= bis
+            if printing :
+
+                print('p = {}, exp = {}'.format(low, v_low))
+                print('p = {}, exp = {}'.format(upp, v_upp))
+                print()
+
+            if abs(upp - low) < 0.001 or abs(v_upp - v_low) < 0.001 :
+                return upp, v_upp
+
+            bis = abs(upp - low) / 2. # bisector
+            if v_low < v_upp :
+                low += bis
+            else :
+                upp -= bis
+
+        # note that this is not really "bisection", but just closing the gap
+        elif agent == 'wait' :
+
+            v_low = simulations(agent = 'wait', wait = low, dirt = dirt, n = n)
+            v_upp = simulations(agent = 'wait', wait = upp, dirt = dirt, n = n)
+
+            if printing :
+
+                print('k = {}, exp = {}'.format(low, v_low))
+                print('k = {}, exp = {}'.format(upp, v_upp))
+                print()
+
+            if upp == low :
+                return upp, v_upp
+
+            if v_low < v_upp :
+                low += 1
+            else :
+                upp -= 1
 
 
 # Main
 #----------------------------------------------------------------------
 
-# bisection(dirt = .1)
+print()
+print('suppose that actions have no cost:')
+print()
 
-n = 0
-for i in range(n) :
-    exp = simulations(agent = 'wait', wait = i, dirt = .1)
+exp = simulation(pen = False)
+print('  reflex vacuum agent has expected performance =', exp)
+print()
 
-    print('wait = {}, exp = {}'.format(i, exp))
+print('suppose that each action (move or clean) has cost 1:')
+print()
+
+exp = simulation()
+print('  reflex vacuum agent has expected performance =', exp)
+print()
+
+exp = simulation(agent = 'broken')
+print('  reflex agent with a broken sensor has expected performance = ', exp)
+print()
+
+exp = simulation(agent = 'null')
+print('  agent that does nothing has expected performance =', exp)
+print()
+
+print('suppose also that each clean square has a 10% chance of becoming dirty again:')
+print()
+
+print('  consider agent which checks other square with probability p,')
+print('  we tune p with bisection:')
+print()
+
+p, v = bisection(dirt = .1)
+print('  -> it seems to converge to p = {:.3f} (performance = {:.3f})'.format(p,v))
+print()
+
+uw = 20
+print('  consider agent which checks other square after k time steps,')
+print('  we tune k by closing the gap between 0 and {}:'.format(uw))
+print()
+
+k, v = bisection(agent = 'wait', dirt = .1, uw = uw)
+print('  -> it seems to converge to k = {} (performance = {:.3f})'.format(k,v))
+print()
